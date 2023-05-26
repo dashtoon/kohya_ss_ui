@@ -1,0 +1,37 @@
+name: kohya-deployment
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy_training:
+    runs-on: ubuntu-latest-4-cores
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install servicefoundry
+        run: pip install servicefoundry
+
+      - name: Login to servicefoundry
+        run: servicefoundry login --host https://dashtoon.truefoundry.com --api-key ${{ secrets.SERVICEFOUNDRY_API_KEY }}
+
+      - name: Deploy dev server
+        working-directory: kohya_ss
+        run: python deploy-dev.py --host ${{ secrets.SERVICE_HOST }} --path ${{ secrets.SERVICE_PATH }}  --workspace_fqn k8s-aws-mum:dev
+
+      - name: Post notification to deployments channel
+        id: slack-kohya
+        uses: slackapi/slack-github-action@v1.23.0
+        with:
+          channel-id: '${{ secrets.DEPLOYMENT_CHANNEL_ID }}'
+          slack-message: "Deploying kohya ss ui: ${{ job.status }}\n${{ github.event.pull_request.html_url || github.event.head_commit.url }}"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
